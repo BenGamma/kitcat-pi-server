@@ -15,7 +15,7 @@ PY2 = sys.version_info.major == 2
 import io
 import os
 import shutil
-import socket
+from RPIO import PWM
 from subprocess import Popen, PIPE
 from struct import Struct
 from threading import Thread
@@ -41,6 +41,8 @@ HTTP_PORT = 8082
 WS_PORT = 8084
 JSMPEG_MAGIC = b'jsmp'
 JSMPEG_HEADER = Struct(native_str('>4sHH'))
+y_axis_value = 500
+x_axis_value = 500
 
 
 class StreamingHttpHandler(BaseHTTPRequestHandler):
@@ -137,6 +139,8 @@ class BroadcastThread(Thread):
             self.converter.stdout.close()
 
 class WSHandler(tornado.websocket.WebSocketHandler):
+    # global y_axis_value
+    # global x_axis_value    
 
     def check_origin(self, origin):
         return True
@@ -144,8 +148,31 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         print ('user is connected.\n')
 
     def on_message(self, message):
+        global y_axis_value
+        global x_axis_value
+        servo = PWM.Servo()
         print ('received message: %s\n' %message)
         self.write_message(message + ' OK')
+        if message == "top":
+            if y_axis_value < 700 and y_axis_value > 300:
+                y_axis_value = y_axis_value + 10
+                print("top ", y_axis_value)
+                servo.set_servo(17, int(y_axis_value))
+        if message == "right":
+            if x_axis_value < 700 and x_axis_value > 300:
+                x_axis_value = x_axis_value + 10
+                print("right ", x_axis_value)
+                servo.set_servo(18, int(x_axis_value))
+        if message == "left":
+            if x_axis_value < 700 and x_axis_value > 300:
+                x_axis_value = x_axis_value - 10
+                print("left ", x_axis_value)
+                servo.set_servo(18, int(x_axis_value))
+        if message == "bottom":
+            if y_axis_value < 700 and y_axis_value > 300:
+                y_axis_value = y_axis_value - 10
+                print("bottom ", y_axis_value)
+                servo.set_servo(17, int(y_axis_value))
 
     def on_close(self):
         print ('connection closed\n')
@@ -203,8 +230,6 @@ def main():
             http_server.shutdown()
             print('Shutting down websockets server')
             websocket_server.shutdown()
-            print('Shutting down servo thread')
-            servo_thread.shutdown()
             print('Waiting for HTTP server thread to finish')
             http_thread.join()
             print('Waiting for websockets thread to finish')
