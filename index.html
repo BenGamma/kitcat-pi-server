@@ -3,6 +3,7 @@
 <head>
 	<meta name="viewport" content="width=320, initial-scale=1"/>
 	<title>jsmpeg streaming</title>
+	<script type="text/javascript" src="http://code.jquery.com/jquery-2.1.4.min.js"></script>
 	<style type="text/css">
 		body {
 			background: #333;
@@ -30,6 +31,8 @@
 			<a href="http://www.apple.com/safari/">Safari</a> or Internet Explorer 10
 		</p>
 	</canvas>
+	<button data-value='400' class='button-1'> 400 </button>
+  	<button data-value='500' class='button-2'> 500 </button>
 	<script type="text/javascript" src="jsmpg.js"></script>
 	<script type="text/javascript">
 		// Show loading notice
@@ -41,6 +44,22 @@
 		// Setup the WebSocket connection and start the player
 		var client = new WebSocket('ws://@ADDRESS@/');
 		var player = new jsmpeg(client, {canvas:canvas});
+
+		$(function () {
+
+            window.WebSocket = window.WebSocket || window.MozWebSocket;
+
+            var ws = new WebSocket('ws://192.168.12.131:3000/ws');
+
+            $('button').on('click', function(){
+                var value = $(this).attr('data-value');
+                sendValue(value);
+            });
+            
+            function sendValue(value){
+                ws.send(value);
+            }
+        });
 	</script>
 </body>
 </html>

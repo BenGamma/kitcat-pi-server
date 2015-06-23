@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#!coding : utf-8
 
 from __future__ import (
     unicode_literals,
@@ -14,6 +15,7 @@ PY2 = sys.version_info.major == 2
 import io
 import os
 import shutil
+import socket
 from subprocess import Popen, PIPE
 from struct import Struct
 from threading import Thread
@@ -25,6 +27,11 @@ import picamera
 from ws4py.websocket import WebSocket
 from ws4py.server.wsgirefserver import WSGIServer, WebSocketWSGIRequestHandler
 from ws4py.server.wsgiutils import WebSocketWSGIApplication
+
+import tornado.httpserver
+import tornado.websocket
+import tornado.ioloop
+import tornado.web
 
 
 WIDTH = 320
@@ -129,8 +136,29 @@ class BroadcastThread(Thread):
         finally:
             self.converter.stdout.close()
 
+class WSHandler(tornado.websocket.WebSocketHandler):
+
+    def check_origin(self, origin):
+        return True
+    def open(self):
+        print ('user is connected.\n')
+
+    def on_message(self, message):
+        print ('received message: %s\n' %message)
+        self.write_message(message + ' OK')
+
+    def on_close(self):
+        print ('connection closed\n')
+
+def ws_servo_thread():
+    print ('start servo thread()')
+    application = tornado.web.Application([(r'/ws', WSHandler),])
+    http_server = tornado.httpserver.HTTPServer(application)
+    http_server.listen(3000)
+    tornado.ioloop.IOLoop.instance().start()
 
 def main():
+    
     print('Initializing camera')
     with picamera.PiCamera() as camera:
         camera.resolution = (WIDTH, HEIGHT)
@@ -152,6 +180,7 @@ def main():
         broadcast_thread = BroadcastThread(output.converter, websocket_server)
         print('Starting recording')
         camera.start_recording(output, 'yuv')
+        servo_thread = Thread(target=ws_servo_thread)
         try:
             print('Starting websockets thread')
             websocket_thread.start()
@@ -159,6 +188,8 @@ def main():
             http_thread.start()
             print('Starting broadcast thread')
             broadcast_thread.start()
+            print('Starting servo thread')
+            servo_thread.start()       
             while True:
                 camera.wait_recording(1)
         except KeyboardInterrupt:
@@ -172,10 +203,14 @@ def main():
             http_server.shutdown()
             print('Shutting down websockets server')
             websocket_server.shutdown()
+            print('Shutting down servo thread')
+            servo_thread.shutdown()
             print('Waiting for HTTP server thread to finish')
             http_thread.join()
             print('Waiting for websockets thread to finish')
             websocket_thread.join()
+            print('Waiting for servo thread to finish')
+            servo_thread.join()
 
 
 if __name__ == '__main__':
