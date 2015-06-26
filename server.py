@@ -153,10 +153,10 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         servo = PWM.Servo()
         print ('received message: %s\n' %message)
         self.write_message(message + ' OK')
-        if message == "top":
+        if message == "bottom":
             if y_axis_value < 700 and y_axis_value > 300:
                 y_axis_value = y_axis_value + 10
-                print("top ", y_axis_value)
+                print("bottom ", y_axis_value)
                 servo.set_servo(17, int(y_axis_value))
         if message == "right":
             if x_axis_value < 700 and x_axis_value > 300:
@@ -168,10 +168,10 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                 x_axis_value = x_axis_value - 10
                 print("left ", x_axis_value)
                 servo.set_servo(18, int(x_axis_value))
-        if message == "bottom":
+        if message == "top":
             if y_axis_value < 700 and y_axis_value > 300:
                 y_axis_value = y_axis_value - 10
-                print("bottom ", y_axis_value)
+                print("top ", y_axis_value)
                 servo.set_servo(17, int(y_axis_value))
 
     def on_close(self):
