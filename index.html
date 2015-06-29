@@ -44,14 +44,14 @@
 		ctx.fillText('Loading...', canvas.width/2-30, canvas.height/3);
 
 		// Setup the WebSocket connection and start the player
-		var client = new WebSocket('ws://192.168.12.131:8084/');
+		var client = new WebSocket('ws://192.168.1.26:8084/');
 		var player = new jsmpeg(client, {canvas:canvas});
 
 		$(function () {
 
             window.WebSocket = window.WebSocket || window.MozWebSocket;
 
-            var ws = new WebSocket('ws://192.168.12.131:3000/ws');
+            var ws = new WebSocket('ws://192.168.1.26:3000/ws');
 
             $('button').on('click', function(){
                 var value = $(this).attr('data-value');

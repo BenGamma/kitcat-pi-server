@@ -16,6 +16,7 @@ import io
 import os
 import shutil
 from RPIO import PWM
+import RPi.GPIO as GPIO
 from subprocess import Popen, PIPE
 from struct import Struct
 from threading import Thread
@@ -41,8 +42,9 @@ HTTP_PORT = 8082
 WS_PORT = 8084
 JSMPEG_MAGIC = b'jsmp'
 JSMPEG_HEADER = Struct(native_str('>4sHH'))
-y_axis_value = 500
+y_axis_value = 700
 x_axis_value = 500
+servo = PWM.Servo()
 
 
 class StreamingHttpHandler(BaseHTTPRequestHandler):
@@ -139,43 +141,61 @@ class BroadcastThread(Thread):
             self.converter.stdout.close()
 
 class WSHandler(tornado.websocket.WebSocketHandler):
-    # global y_axis_value
-    # global x_axis_value    
+    global servo
 
     def check_origin(self, origin):
         return True
     def open(self):
         print ('user is connected.\n')
+        # Start laser
+        # Use physical pin numbers
+        GPIO.setmode(GPIO.BOARD)
+        # Set up header pin 24 as an output
+        print ("Start laser")
+        GPIO.setup(24, GPIO.OUT)
+        GPIO.output(24, GPIO.HIGH)
+        # Initialize servo position        
+        servo.set_servo(17, int(y_axis_value))
+        servo.set_servo(18, int(x_axis_value))
 
     def on_message(self, message):
         global y_axis_value
         global x_axis_value
-        servo = PWM.Servo()
         print ('received message: %s\n' %message)
         self.write_message(message + ' OK')
         if message == "bottom":
-            if y_axis_value < 700 and y_axis_value > 300:
-                y_axis_value = y_axis_value + 10
+            if y_axis_value > 590:
+                y_axis_value = y_axis_value - 10
                 print("bottom ", y_axis_value)
                 servo.set_servo(17, int(y_axis_value))
+            else:
+                print("max bottom")
         if message == "right":
-            if x_axis_value < 700 and x_axis_value > 300:
-                x_axis_value = x_axis_value + 10
+            if x_axis_value > 330:
+                x_axis_value = x_axis_value - 10
                 print("right ", x_axis_value)
                 servo.set_servo(18, int(x_axis_value))
+            else:
+                print("right max")
         if message == "left":
-            if x_axis_value < 700 and x_axis_value > 300:
-                x_axis_value = x_axis_value - 10
+            if x_axis_value < 1000:
+                x_axis_value = x_axis_value + 10
                 print("left ", x_axis_value)
                 servo.set_servo(18, int(x_axis_value))
+            else:
+                print("left max")
         if message == "top":
-            if y_axis_value < 700 and y_axis_value > 300:
-                y_axis_value = y_axis_value - 10
+            if y_axis_value > 100:
+                y_axis_value = y_axis_value + 10
                 print("top ", y_axis_value)
                 servo.set_servo(17, int(y_axis_value))
+            else:
+                print("max top")
 
     def on_close(self):
         print ('connection closed\n')
+        print("stop laser")
+        GPIO.output(24, GPIO.LOW)
 
 def ws_servo_thread():
     print ('start servo thread()')
@@ -216,12 +236,14 @@ def main():
             print('Starting broadcast thread')
             broadcast_thread.start()
             print('Starting servo thread')
-            servo_thread.start()       
+            servo_thread.start()
             while True:
                 camera.wait_recording(1)
         except KeyboardInterrupt:
             pass
         finally:
+            print("stop laser")
+            GPIO.output(24, GPIO.LOW)
             print('Stopping recording')
             camera.stop_recording()
             print('Waiting for broadcast thread to finish')
