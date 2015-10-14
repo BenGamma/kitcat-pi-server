@@ -31,10 +31,6 @@
 			<a href="http://www.apple.com/safari/">Safari</a> or Internet Explorer 10
 		</p>
 	</canvas>
-	<button data-value='top' class='button-1'> top </button>
-  	<button data-value='left' class='button-2'> left </button>
-  	<button data-value='right' class='button-3'> right </button>
-  	<button data-value='bottom' class='button-4'> bottom </button>
 	<script type="text/javascript" src="jsmpg.js"></script>
 	<script type="text/javascript">
 		// Show loading notice
@@ -44,21 +40,33 @@
 		ctx.fillText('Loading...', canvas.width/2-30, canvas.height/3);
 
 		// Setup the WebSocket connection and start the player
-		var client = new WebSocket('ws://192.168.1.26:8084/');
+		var client = new WebSocket('ws://192.168.1.109:8084/');
 		var player = new jsmpeg(client, {canvas:canvas});
 
 		$(function () {
 
             window.WebSocket = window.WebSocket || window.MozWebSocket;
 
-            var ws = new WebSocket('ws://192.168.1.26:3000/ws');
-
-            $('button').on('click', function(){
-                var value = $(this).attr('data-value');
-                sendValue(value);
-            });
+            var ws = new WebSocket('ws://192.168.1.109:3000/ws');
             
-            function sendValue(value){
+            document.onkeydown = function(e) {
+			    switch (e.keyCode) {
+			        case 37:
+			            sendValue('left');
+			            break;
+			        case 38:
+			            sendValue('top');
+			            break;
+			        case 39:
+			            sendValue('right');
+			            break;
+			        case 40:
+			            sendValue('bottom');
+			            break;
+			    }
+			};
+
+			function sendValue(value){
                 ws.send(value);
             }
         });
