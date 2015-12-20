@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#!coding : utf-8
 
 from __future__ import (
     unicode_literals,
@@ -14,6 +15,8 @@ PY2 = sys.version_info.major == 2
 import io
 import os
 import shutil
+from RPIO import PWM
+import RPi.GPIO as GPIO
 from subprocess import Popen, PIPE
 from string import Template
 from struct import Struct
@@ -31,6 +34,12 @@ from ws4py.server.wsgiutils import WebSocketWSGIApplication
 # CONFIGURATION
 WIDTH = 640
 HEIGHT = 480
+import tornado.httpserver
+import tornado.websocket
+import tornado.ioloop
+import tornado.web
+
+
 FRAMERATE = 24
 HTTP_PORT = 8082
 WS_PORT = 8084
@@ -39,6 +48,9 @@ BGCOLOR = u'#333'
 JSMPEG_MAGIC = b'jsmp'
 JSMPEG_HEADER = Struct(native_str('>4sHH'))
 ###########################################
+y_axis_value = 700
+x_axis_value = 500
+servo = PWM.Servo()
 
 
 class StreamingHttpHandler(BaseHTTPRequestHandler):
@@ -135,8 +147,72 @@ class BroadcastThread(Thread):
         finally:
             self.converter.stdout.close()
 
+class WSHandler(tornado.websocket.WebSocketHandler):
+    global servo
+
+    def check_origin(self, origin):
+        return True
+    def open(self):
+        print ('user is connected.\n')
+        # Start laser
+        # Use physical pin numbers
+        GPIO.setmode(GPIO.BOARD)
+        # Set up header pin 24 as an output
+        print ("Start laser")
+        GPIO.setup(24, GPIO.OUT)
+        GPIO.output(24, GPIO.HIGH)
+        # Initialize servo position        
+        servo.set_servo(17, int(y_axis_value))
+        servo.set_servo(18, int(x_axis_value))
+
+    def on_message(self, message):
+        global y_axis_value
+        global x_axis_value
+        print ('received message: %s\n' %message)
+        self.write_message(message + ' OK')
+        if message == "bottom":
+            if y_axis_value > 590:
+                y_axis_value = y_axis_value - 10
+                print("bottom ", y_axis_value)
+                servo.set_servo(17, int(y_axis_value))
+            else:
+                print("max bottom")
+        if message == "right":
+            if x_axis_value > 330:
+                x_axis_value = x_axis_value - 10
+                print("right ", x_axis_value)
+                servo.set_servo(18, int(x_axis_value))
+            else:
+                print("right max")
+        if message == "left":
+            if x_axis_value < 1000:
+                x_axis_value = x_axis_value + 10
+                print("left ", x_axis_value)
+                servo.set_servo(18, int(x_axis_value))
+            else:
+                print("left max")
+        if message == "top":
+            if y_axis_value > 100:
+                y_axis_value = y_axis_value + 10
+                print("top ", y_axis_value)
+                servo.set_servo(17, int(y_axis_value))
+            else:
+                print("max top")
+
+    def on_close(self):
+        print ('connection closed\n')
+        print("stop laser")
+        GPIO.output(24, GPIO.LOW)
+
+def ws_servo_thread():
+    print ('start servo thread()')
+    application = tornado.web.Application([(r'/ws', WSHandler),])
+    http_server = tornado.httpserver.HTTPServer(application)
+    http_server.listen(3000)
+    tornado.ioloop.IOLoop.instance().start()
 
 def main():
+    
     print('Initializing camera')
     with picamera.PiCamera() as camera:
         camera.resolution = (WIDTH, HEIGHT)
@@ -158,6 +234,7 @@ def main():
         broadcast_thread = BroadcastThread(output.converter, websocket_server)
         print('Starting recording')
         camera.start_recording(output, 'yuv')
+        servo_thread = Thread(target=ws_servo_thread)
         try:
             print('Starting websockets thread')
             websocket_thread.start()
@@ -165,11 +242,15 @@ def main():
             http_thread.start()
             print('Starting broadcast thread')
             broadcast_thread.start()
+            print('Starting servo thread')
+            servo_thread.start()
             while True:
                 camera.wait_recording(1)
         except KeyboardInterrupt:
             pass
         finally:
+            print("stop laser")
+            GPIO.output(24, GPIO.LOW)
             print('Stopping recording')
             camera.stop_recording()
             print('Waiting for broadcast thread to finish')
@@ -182,6 +263,8 @@ def main():
             http_thread.join()
             print('Waiting for websockets thread to finish')
             websocket_thread.join()
+            print('Waiting for servo thread to finish')
+            servo_thread.join()
 
 
 if __name__ == '__main__':
