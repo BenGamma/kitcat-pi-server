@@ -46,6 +46,7 @@
 		// Setup the WebSocket connection and start the player
 
 		var client = new WebSocket('ws://192.168.1.43:8084/');
+		var client = new WebSocket('ws://192.168.1.109:8084/');
 		var player = new jsmpeg(client, {canvas:canvas});
 
 		$(function () {
@@ -60,6 +61,26 @@
             });
             
             function sendValue(value){
+            var ws = new WebSocket('ws://192.168.1.109:3000/ws');
+            
+            document.onkeydown = function(e) {
+			    switch (e.keyCode) {
+			        case 37:
+			            sendValue('left');
+			            break;
+			        case 38:
+			            sendValue('top');
+			            break;
+			        case 39:
+			            sendValue('right');
+			            break;
+			        case 40:
+			            sendValue('bottom');
+			            break;
+			    }
+			};
+
+			function sendValue(value){
                 ws.send(value);
             }
         });
